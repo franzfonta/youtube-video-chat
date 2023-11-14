@@ -1,13 +1,14 @@
 import logging
 import time
 
-from youtube_transcript_api import YouTubeTranscriptApi
-
+from youtube_transcript_fetcher import YouTubeTranscriptFetcher
 
 class YouTubeAssistant:
 
-    def __init__(self, client):
+    def __init__(self, client, transcript_fetcher: YouTubeTranscriptFetcher):
         self.client = client
+
+        self.transcript_fetcher = transcript_fetcher
 
         self.assistant = client.beta.assistants.retrieve(
             "asst_LPQPZEeSHTUPxsap2htGVGYa")
@@ -25,20 +26,10 @@ class YouTubeAssistant:
 
         self.thread = None
 
-    def start_new_thread(self, video_url):
-
+    def start_new_thread(self, video_url: str):
         self.thread = self.client.beta.threads.create()
-
-        # Extract the video ID from the URL
-        video_id = video_url.split('v=')[1]
-
-        # Use the youtube-transcript-api to fetch the transcript
-        # TODO Dinamically identify the transcript language (from user question or even better from the video itself)
-        # TODO Refactor this into a separate function
-        transcript_data = YouTubeTranscriptApi.get_transcript(
-            video_id, languages=['en'])
-        self.full_transcript = " ".join([entry['text'] for entry in transcript_data])
-
+        # TODO refactor to move transcript to a Thread Object
+        self.full_transcript = self.transcript_fetcher.get_transcript(video_url)
         return self.thread
 
     def __retrieve_run(self, thread_id, run_id, max_retries=5, base_delay=2):
@@ -48,7 +39,6 @@ class YouTubeAssistant:
             logging.info(f"Attempt {retries + 1}")
             run = self.client.beta.threads.runs.retrieve(
                 thread_id=thread_id, run_id=run_id)
-            logging.info(run.status)
             if run.status == "completed":
                 return run
             else:
@@ -88,9 +78,7 @@ class YouTubeAssistant:
             )
             last_message = messages.data[0].content[0].text.value
 
-            # Display the answer
-            return last_message.content[0].text.data
+            return last_message
 
         except Exception as e:
             logging.error(e)
-            return f"No transcript available"
