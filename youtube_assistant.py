@@ -1,7 +1,9 @@
 import logging
 import time
+from thread import Thread
 
 from youtube_transcript_fetcher import YouTubeTranscriptFetcher
+
 
 class YouTubeAssistant:
 
@@ -24,13 +26,10 @@ class YouTubeAssistant:
             )
         """
 
-        self.thread = None
-
-    def start_new_thread(self, video_url: str):
-        self.thread = self.client.beta.threads.create()
-        # TODO refactor to move transcript to a Thread Object
-        self.full_transcript = self.transcript_fetcher.get_transcript(video_url)
-        return self.thread
+    def create_thread(self, video_url: str) -> Thread:
+        openai_thread = self.client.beta.threads.create()
+        full_transcript = self.transcript_fetcher.get_transcript(video_url)
+        return Thread(video_url, full_transcript, openai_thread)
 
     def __retrieve_run(self, thread_id, run_id, max_retries=5, base_delay=2):
         # Poll the run until it is completed
@@ -48,37 +47,39 @@ class YouTubeAssistant:
                 time.sleep(delay)
         raise Exception("Max retries reached, operation failed.")
 
-    def ask_question(self, user_question):
+    def ask_question(self, thread: Thread, prompt: str) -> str:
 
-        if self.thread is None or self.full_transcript is None:
-            raise Exception("Thread not created")
+        # Add user message to thread
+        thread.messages.append({"role": "user", "content": prompt})
 
         try:
 
             # Create a new message in the thread
-            query = f"I have a question about this YouTube video transcript: \n\"{self.full_transcript}\".\n My question is: {user_question}"
+            query = f"I have a question about this YouTube video transcript: \n\"{thread.full_transcript}\".\n My question is: {prompt}"
             message = self.client.beta.threads.messages.create(
-                thread_id=self.thread.id,
+                thread_id=thread.id,
                 role="user",
                 content=query
             )
 
             # Create a new run
             run = self.client.beta.threads.runs.create(
-                thread_id=self.thread.id,
+                thread_id=thread.id,
                 assistant_id=self.assistant.id
             )
 
             # Wait for the run to complete
-            run = self.__retrieve_run(self.thread.id, run.id)
+            run = self.__retrieve_run(thread.id, run.id)
 
             # Retrieve the last message in the thread
             messages = self.client.beta.threads.messages.list(
-                thread_id=self.thread.id
-            )
-            last_message = messages.data[0].content[0].text.value
+                thread_id=thread.id)
+            response = messages.data[0].content[0].text.value
 
-            return last_message
+            # Add assistant response to chat history
+            thread.messages.append({"role": "assistant", "content": response})
+
+            return response
 
         except Exception as e:
             logging.error(e)
