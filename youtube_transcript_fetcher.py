@@ -11,9 +11,8 @@ class YouTubeTranscriptFetcher:
 
         # Use the youtube-transcript-api to fetch the transcript
         # TODO Check if the video has a transcript for the user language
-        # TODO We don't like implicit dependencies
-        transcript_data = YouTubeTranscriptApi.get_transcript(
+        transcript = YouTubeTranscriptApi.get_transcript(
             video_id, languages=['en'])
 
         # Return the transcript as a single string
-        return " ".join([entry['text'] for entry in transcript_data])
+        return " ".join([entry['text'] for entry in transcript])

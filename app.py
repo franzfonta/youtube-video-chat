@@ -1,21 +1,16 @@
-# TODO choose only one logging library
 import logging
 import os
 import sys
 
 import streamlit as st
-from dependency_injector import containers, providers
 from dotenv import load_dotenv
-from icecream import ic
 from openai import OpenAI
 
 from helpers import is_valid_url
 from mock_openai_client import MockOpenaiClient
-from thread import Thread
 from youtube_assistant import YouTubeAssistant
+from youtube_thread import YouTubeThread
 from youtube_transcript_fetcher import YouTubeTranscriptFetcher
-
-# TODO introduce dependency injection
 
 load_dotenv()
 logging.basicConfig(stream=sys.stdout,
@@ -25,21 +20,20 @@ logging.basicConfig(stream=sys.stdout,
 # Initialize the assistant
 if 'assistant' not in st.session_state:
 
-    # initialize OpenAI client
+    # Initialize the OpenAI client. Use the mock client when developing.
+    environment = os.getenv('ENVIRONMENT')
     api_key = os.getenv('OPENAI_API_KEY')
-    # TODO move implementation choice to a dependency injector
-    # client = OpenAI(api_key=api_key)
-    client = MockOpenaiClient()
+    client = OpenAI(
+        api_key=api_key) if environment == "prod" else MockOpenaiClient()
 
-    # TODO inject dependency
     transcript_fetcher = YouTubeTranscriptFetcher()
 
-    # Retrieve or create the Assistant TODO
     st.session_state.assistant = YouTubeAssistant(client, transcript_fetcher)
 
+# Initialize threads
 if 'threads' not in st.session_state:
-    # Initialize threads
-    st.session_state.threads = []
+    
+    st.session_state.threads: list[YouTubeThread] = []
 
 # Set title and description
 st.title('YouTube Smart Assistant')
@@ -55,25 +49,25 @@ with st.sidebar:
         video_url = st.text_input("YouTube video")
 
         # True when the user pushes the Ask button
-        wanna_chat = st.form_submit_button("Analyse it!")
-        if wanna_chat:
+        if st.form_submit_button("Analyze it!"):
             if is_valid_url(video_url):
-                st.session_state.current_thread = st.session_state.assistant.create_thread(video_url)
+                st.session_state.current_thread = st.session_state.assistant.create_thread(
+                    video_url)
                 st.session_state.threads.append(
                     st.session_state.current_thread)
             else:
                 st.error("Please enter a valid YouTube URL")
 
-    # Display chat messages from history on app rerun
+    # Display threads in the sidebar
     for thread in st.session_state.threads:
-        callback = lambda thread: st.session_state.__setitem__("current_thread", thread)
+        def callback(thread): return st.session_state.__setitem__("current_thread", thread)
         st.button(
-            f"Thread {thread.id}",
+            f"Thread {thread.openai_thread.id}",
             on_click=callback(thread),
-            type = "primary" if thread == st.session_state.current_thread else "secondary"
+            type="primary" if thread == st.session_state.current_thread else "secondary"
         )
 
-# Display chat messages from history on app rerun
+# Display chat messages from history
 if "current_thread" in st.session_state:
     for message in st.session_state.current_thread.messages:
         with st.chat_message(message["role"]):
@@ -85,11 +79,14 @@ if prompt := st.chat_input(f"Your question..."):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # TODO check if the transcript is available and user has asked a question
-    response = f"Echo: {prompt}"
     # Display assistant response in chat message container
     with st.chat_message("assistant"):
         with st.spinner():
-            response = st.session_state.assistant.ask_question(
-                st.session_state.current_thread, prompt)
-            st.markdown(response)
+            if not "current_thread" in st.session_state:
+                st.markdown("Please select a YouTube video.")
+            elif st.session_state.current_thread.transcript is None:
+                st.warning("Please select a YouTube video.")
+            else:
+                response = st.session_state.assistant.ask_question(
+                    st.session_state.current_thread, prompt)
+                st.markdown(response)
