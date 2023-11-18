@@ -31,7 +31,7 @@ class YouTubeAssistant:
         transcript = self.transcript_fetcher.get_transcript(video_url)
         return YouTubeThread(video_url, transcript, openai_thread)
 
-    def __retrieve_run(self, thread_id, run_id, max_retries=5, base_delay=2):
+    def __retrieve_run(self, thread_id: str, run_id: str, max_retries: int = 5, base_delay: int = 2):
         # Poll the run until it is completed
         retries = 0
         while retries < max_retries:

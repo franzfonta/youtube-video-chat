@@ -63,7 +63,7 @@ with st.sidebar:
         def callback(thread): return st.session_state.__setitem__("current_thread", thread)
         st.button(
             f"Thread {thread.openai_thread.id}",
-            on_click=callback(thread),
+            on_click=lambda thread=thread: callback(thread),
             type="primary" if thread == st.session_state.current_thread else "secondary"
         )
 
