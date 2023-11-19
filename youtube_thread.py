@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -8,4 +8,4 @@ class YouTubeThread:
     video_url: str
     transcript: str
     openai_thread: Any
-    messages = []
+    messages: list = field(default_factory=list)

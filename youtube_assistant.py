@@ -1,5 +1,6 @@
 import logging
 import time
+from typing import Optional
 from youtube_thread import YouTubeThread
 
 from youtube_transcript_fetcher import YouTubeTranscriptFetcher
@@ -8,13 +9,19 @@ from youtube_transcript_fetcher import YouTubeTranscriptFetcher
 class YouTubeAssistant:
 
     def __init__(self, client, transcript_fetcher: YouTubeTranscriptFetcher):
-        self.client = client
+        """
+        Initializes a new instance of the YouTubeAssistant class.
 
+        Args:
+            client: The client object used to interact with the YouTube API.
+            transcript_fetcher: An instance of the YouTubeTranscriptFetcher class used to fetch video transcripts.
+        """
+        self.client = client
         self.transcript_fetcher = transcript_fetcher
 
+        # TODO instead of creating a new assistant every time, retrieve the existing one
         self.assistant = client.beta.assistants.retrieve(
             "asst_LPQPZEeSHTUPxsap2htGVGYa")
-        # TODO instead of creating a new assistant every time, retrieve the existing one
         """
         client.beta.assistants.list()
         if not st.session_state.assistant:
@@ -27,11 +34,47 @@ class YouTubeAssistant:
         """
 
     def create_thread(self, video_url: str) -> YouTubeThread:
+        """
+        Creates the thread for a YouTube video and sends the first message with the transcript.
+
+        Args:
+            video_url (str): The URL of the YouTube video.
+
+        Returns:
+            YouTubeThread: The created YouTubeThread object.
+        """
         openai_thread = self.client.beta.threads.create()
+        
         transcript = self.transcript_fetcher.get_transcript(video_url)
-        return YouTubeThread(video_url, transcript, openai_thread)
+
+        youtube_thread = YouTubeThread(video_url, transcript, openai_thread)
+        
+        # Create the first message in the thread with the video transcript
+        initial_prompt = f"This is the transcript of a YouTube video: \
+            \n\"{transcript}\".\n \
+            In the following messages I will ask you questions about it. \
+            As for now, summarize the video in 100 words or less."
+        self.ask_question(youtube_thread, initial_prompt, True)
+        
+        return youtube_thread
+         
 
     def __retrieve_run(self, thread_id: str, run_id: str, max_retries: int = 5, base_delay: int = 2):
+        """
+        Retrieve a run from a thread until it is completed or maximum retries are reached.
+
+        Args:
+            thread_id (str): The ID of the thread.
+            run_id (str): The ID of the run.
+            max_retries (int, optional): The maximum number of retries. Defaults to 5.
+            base_delay (int, optional): The base delay in seconds. Defaults to 2.
+
+        Returns:
+            The completed run.
+
+        Raises:
+            Exception: If maximum retries are reached and the operation fails.
+        """
         # Poll the run until it is completed
         retries = 0
         while retries < max_retries:
@@ -47,39 +90,49 @@ class YouTubeAssistant:
                 time.sleep(delay)
         raise Exception("Max retries reached, operation failed.")
 
-    def ask_question(self, thread: YouTubeThread, prompt: str) -> str:
+    def ask_question(self, thread: YouTubeThread, prompt: str, is_initial_prompt: bool = False) -> Optional[str]:
+            """
+            Sends a question to the YouTube Assistant and retrieves the response.
 
-        # Add user message to thread
-        thread.messages.append({"role": "user", "content": prompt})
+            Args:
+                thread (YouTubeThread): The YouTube thread to send the question to.
+                prompt (str): The question prompt.
+                is_initial_prompt (bool, optional): True if the prompt is the initial prompt. Defaults to False.
 
-        try:
+            Returns:
+                Optional[str]: The response from the YouTube Assistant or None if the operation fails.
+            """
+            # Add user message to thread except for the initial prompt
+            if not is_initial_prompt:
+                thread.messages.append({"role": "user", "content": prompt})
 
-            # Create a new message in the thread
-            query = f"I have a question about this YouTube video transcript: \n\"{thread.transcript}\".\n My question is: {prompt}"
-            message = self.client.beta.threads.messages.create(
-                thread_id=thread.openai_thread.id,
-                role="user",
-                content=query
-            )
+            try:
+                # Create a new message in the thread
+                message = self.client.beta.threads.messages.create(
+                    thread_id=thread.openai_thread.id,
+                    role="user",
+                    content=prompt
+                )
 
-            # Create a new run
-            run = self.client.beta.threads.runs.create(
-                thread_id=thread.openai_thread.id,
-                assistant_id=self.assistant.id
-            )
+                # Create a new run
+                run = self.client.beta.threads.runs.create(
+                    thread_id=thread.openai_thread.id,
+                    assistant_id=self.assistant.id
+                )
 
-            # Wait for the run to complete
-            run = self.__retrieve_run(thread.openai_thread.id, run.id)
+                # Wait for the run to complete
+                run = self.__retrieve_run(thread.openai_thread.id, run.id)
 
-            # Retrieve the last message in the thread
-            messages = self.client.beta.threads.messages.list(
-                thread_id=thread.openai_thread.id)
-            response = messages.data[0].content[0].text.value
+                # Retrieve the last message in the thread
+                messages = self.client.beta.threads.messages.list(
+                    thread_id=thread.openai_thread.id)
+                response = messages.data[0].content[0].text.value
 
-            # Add assistant response to chat history
-            thread.messages.append({"role": "assistant", "content": response})
+                # Add assistant response to chat history
+                thread.messages.append({"role": "assistant", "content": response})
 
-            return response
+                return response
 
-        except Exception as e:
-            logging.error(e)
+            except Exception as e:
+                logging.error(e)
+                return None

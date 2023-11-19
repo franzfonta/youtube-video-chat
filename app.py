@@ -32,21 +32,22 @@ if 'assistant' not in st.session_state:
 
 # Initialize threads
 if 'threads' not in st.session_state:
-    
     st.session_state.threads: list[YouTubeThread] = []
 
 # Set title and description
 st.title('YouTube Smart Assistant')
 st.write('Ask me something about a YouTube video and I will answer you!')
 
+# Display the sidebar with the form to start a new conversation and the previous conversations
 with st.sidebar:
 
+    # Display the form to fetch a transcript and start a new conversation
     with st.form(key='my_form'):
 
         st.markdown('## Let\'s start a new conversation!')
 
         # The URL of the YouTube video the user is interested in
-        video_url = st.text_input("YouTube video")
+        video_url = st.text_input("YouTube video link")
 
         # True when the user pushes the Ask button
         if st.form_submit_button("Analyze it!"):
@@ -58,14 +59,18 @@ with st.sidebar:
             else:
                 st.error("Please enter a valid YouTube URL")
 
-    # Display threads in the sidebar
+    # Display the video thumbnail and a button to select the thread for all previous conversations
     for thread in st.session_state.threads:
-        def callback(thread): return st.session_state.__setitem__("current_thread", thread)
+        def callback(thread): return st.session_state.__setitem__(
+            "current_thread", thread)
+        # TODO refactor this
+        st.image(f"https://img.youtube.com/vi/{thread.video_url.split('v=')[1]}/maxresdefault.jpg")
         st.button(
             f"Thread {thread.openai_thread.id}",
             on_click=lambda thread=thread: callback(thread),
             type="primary" if thread == st.session_state.current_thread else "secondary"
         )
+        st.divider()
 
 # Display chat messages from history
 if "current_thread" in st.session_state:
@@ -87,6 +92,8 @@ if prompt := st.chat_input(f"Your question..."):
             elif st.session_state.current_thread.transcript is None:
                 st.warning("Please select a YouTube video.")
             else:
-                response = st.session_state.assistant.ask_question(
-                    st.session_state.current_thread, prompt)
-                st.markdown(response)
+                if response := st.session_state.assistant.ask_question(st.session_state.current_thread, prompt):
+                    st.markdown(response)
+                else:
+                    st.error("Something went wrong. Please try again.")
+

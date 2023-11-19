@@ -3,7 +3,17 @@ from typing import Optional
 
 
 class YouTubeTranscriptFetcher:
+    
     def get_transcript(self, video_url: str) -> Optional[str]:
+        """
+        Fetches the transcript of a YouTube video.
+
+        Args:
+            video_url (str): The URL of the YouTube video.
+
+        Returns:
+            Optional[str]: The transcript of the video as a single string, or None if the transcript is not available.
+        """
 
         # Extract the video ID from the URL
         # TODO use urllib.parse to avoid string manipulation
