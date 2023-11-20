@@ -23,12 +23,14 @@ if 'assistant' not in st.session_state:
     # Initialize the OpenAI client. Use the mock client when developing.
     environment = os.getenv('ENVIRONMENT')
     api_key = os.getenv('OPENAI_API_KEY')
+    assistant_id = os.getenv('YOUTUBE_TRANSCRIPT_ASSISTANT_ID')
     client = OpenAI(
         api_key=api_key) if environment == "prod" else MockOpenaiClient()
 
     transcript_fetcher = YouTubeTranscriptFetcher()
 
-    st.session_state.assistant = YouTubeAssistant(client, transcript_fetcher)
+    st.session_state.assistant = YouTubeAssistant(
+        client, assistant_id, transcript_fetcher)
 
 # Initialize threads
 if 'threads' not in st.session_state:
@@ -60,14 +62,17 @@ with st.sidebar:
                 st.error("Please enter a valid YouTube URL")
 
     # Display the video thumbnail and a button to select the thread for all previous conversations
+
     for thread in st.session_state.threads:
-        def callback(thread): return st.session_state.__setitem__(
-            "current_thread", thread)
         # TODO refactor this
-        st.image(f"https://img.youtube.com/vi/{thread.video_url.split('v=')[1]}/maxresdefault.jpg")
+        st.image(
+            f"https://img.youtube.com/vi/{thread.video_url.split('v=')[1]}/maxresdefault.jpg")
+
         st.button(
             f"Thread {thread.openai_thread.id}",
-            on_click=lambda thread=thread: callback(thread),
+            on_click=lambda thread: st.session_state.__setitem__(
+                "current_thread", thread),
+            args=(thread,),
             type="primary" if thread == st.session_state.current_thread else "secondary"
         )
         st.divider()
@@ -79,7 +84,7 @@ if "current_thread" in st.session_state:
             st.markdown(message["content"])
 
 # React to user input
-if prompt := st.chat_input(f"Your question..."):
+if prompt := st.chat_input("Your question..."):
     # Display user message in chat message container
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -87,13 +92,13 @@ if prompt := st.chat_input(f"Your question..."):
     # Display assistant response in chat message container
     with st.chat_message("assistant"):
         with st.spinner():
-            if not "current_thread" in st.session_state:
+            if "current_thread" not in st.session_state:
                 st.markdown("Please select a YouTube video.")
             elif st.session_state.current_thread.transcript is None:
                 st.warning("Please select a YouTube video.")
             else:
-                if response := st.session_state.assistant.ask_question(st.session_state.current_thread, prompt):
+                if response := st.session_state.assistant.ask_question(
+                        st.session_state.current_thread, prompt):
                     st.markdown(response)
                 else:
                     st.error("Something went wrong. Please try again.")
-

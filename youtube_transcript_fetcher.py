@@ -1,9 +1,13 @@
-from youtube_transcript_api import YouTubeTranscriptApi
 from typing import Optional
+
+from youtube_transcript_api import YouTubeTranscriptApi
 
 
 class YouTubeTranscriptFetcher:
-    
+    """
+    A class for fetching the transcript of a YouTube video.
+    """
+
     def get_transcript(self, video_url: str) -> Optional[str]:
         """
         Fetches the transcript of a YouTube video.
