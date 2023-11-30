@@ -1,9 +1,10 @@
 import logging
 import time
-from typing import Optional
+from typing import Callable, Optional
+
+from openai import OpenAI
 
 from youtube_thread import YouTubeThread
-from youtube_transcript_fetcher import YouTubeTranscriptFetcher
 
 
 class YouTubeAssistant:
@@ -11,17 +12,18 @@ class YouTubeAssistant:
     Represents an assistant for interacting with YouTube videos and transcripts.
     """
 
-    def __init__(self, client, assistant_id: str, transcript_fetcher: YouTubeTranscriptFetcher):
+    def __init__(self, client: OpenAI, assistant_id: str, transcript_fetcher: Callable[[str], str]):
         """
-        Initializes a new instance of the YouTubeAssistant class.
+        Initializes a new instance of the YouTubeAssistant class by retrieving the existing
+        assistant.
 
         Args:
             client: The client object used to interact with the YouTube API.
-            transcript_fetcher: An instance of the YouTubeTranscriptFetcher class used to fetch video transcripts.
+            transcript_fetcher: An instance of the YouTubeTranscriptFetcher class used to
+            fetch video transcripts.
         """
         self.client = client
         self.transcript_fetcher = transcript_fetcher
-        # retrieve the existing assistant, doesn't need to be created every time
         self.assistant = client.beta.assistants.retrieve(assistant_id)
 
     def create_thread(self, video_url: str) -> YouTubeThread:
@@ -34,11 +36,12 @@ class YouTubeAssistant:
         Returns:
             YouTubeThread: The created YouTubeThread object.
         """
+
+        transcript = self.transcript_fetcher(video_url)
+
         openai_thread = self.client.beta.threads.create()
 
         # TODO persist thread ID for later retrieval
-
-        transcript = self.transcript_fetcher.get_transcript(video_url)
 
         youtube_thread = YouTubeThread(video_url, transcript, openai_thread)
 

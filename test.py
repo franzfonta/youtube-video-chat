@@ -1,15 +1,12 @@
 import logging
-import sys
 import os
+import sys
 
-from openai import OpenAI
 from dotenv import load_dotenv
-from mock_openai_client import MockOpenaiClient
-from youtube_thread import YouTubeThread
 
+from helpers import fetch_youtube_transcript
+from tests.mock_openai_client import MockOpenaiClient
 from youtube_assistant import YouTubeAssistant
-from youtube_transcript_fetcher import YouTubeTranscriptFetcher
-
 
 # TODO convert to unittest framework
 
@@ -20,8 +17,9 @@ logging.basicConfig(stream=sys.stdout,
 
 api_key = os.getenv('OPENAI_API_KEY')
 client = MockOpenaiClient()
-transcript_fetcher = YouTubeTranscriptFetcher()
-assistant = YouTubeAssistant(client, transcript_fetcher)
+assistant = YouTubeAssistant(
+    client, "stub_assistant", fetch_youtube_transcript)
 thread = assistant.create_thread("https://www.youtube.com/watch?v=qSAVIDivILk")
-answer = assistant.ask_question(thread, "What is the video about? Write short bullet points.")
+answer = assistant.ask_question(
+    thread, "What is the video about? Write short bullet points.")
 print(answer)
