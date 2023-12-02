@@ -4,9 +4,9 @@ import sys
 
 from dotenv import load_dotenv
 
-from helpers import fetch_youtube_transcript
 from tests.mock_openai_client import MockOpenaiClient
-from youtube_assistant import YouTubeAssistant
+from youtube_video_chat.helpers import fetch_youtube_transcript
+from youtube_video_chat.youtube_assistant import YouTubeAssistant
 
 # TODO convert to unittest framework
 

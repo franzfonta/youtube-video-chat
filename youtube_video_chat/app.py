@@ -7,9 +7,9 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from helpers import fetch_youtube_transcript, is_valid_url
 from tests.mock_openai_client import MockOpenaiClient
-from youtube_assistant import YouTubeAssistant
+from youtube_video_chat.helpers import fetch_youtube_transcript, is_valid_url
+from youtube_video_chat.youtube_assistant import YouTubeAssistant
 
 
 def main(ai_client: OpenAI, assistant_id: str, youtube_transcript_fetcher: Callable[[str], str]) -> None:

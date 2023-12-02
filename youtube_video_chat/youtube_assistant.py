@@ -4,7 +4,7 @@ from typing import Callable, Optional
 
 from openai import OpenAI
 
-from youtube_thread import YouTubeThread
+from youtube_video_chat.youtube_thread import YouTubeThread
 
 
 class YouTubeAssistant:
