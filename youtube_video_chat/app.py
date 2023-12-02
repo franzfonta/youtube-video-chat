@@ -1,34 +1,26 @@
 import logging
 import os
 import sys
+from typing import Callable
 
 import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
 from helpers import fetch_youtube_transcript, is_valid_url
-from mock_openai_client import MockOpenaiClient
+from tests.mock_openai_client import MockOpenaiClient
 from youtube_assistant import YouTubeAssistant
 
 
-def main() -> None:
-    load_dotenv()
+def main(ai_client: OpenAI, assistant_id: str, youtube_transcript_fetcher: Callable[[str], str]) -> None:
     logging.basicConfig(stream=sys.stdout,
                         level=logging.INFO,
                         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     # Initialize the assistant
     if 'assistant' not in st.session_state:
-
-        # Initialize the OpenAI client. Use the mock client when developing.
-        environment = os.getenv('ENVIRONMENT')
-        api_key = os.getenv('OPENAI_API_KEY')
-        assistant_id = os.getenv('YOUTUBE_TRANSCRIPT_ASSISTANT_ID', "")
-        client = OpenAI(
-            api_key=api_key) if environment == "prod" else MockOpenaiClient()
-
         st.session_state.assistant = YouTubeAssistant(
-            client, assistant_id, fetch_youtube_transcript)
+            ai_client, assistant_id, youtube_transcript_fetcher)
 
     # Initialize threads
     if 'threads' not in st.session_state:
@@ -106,4 +98,13 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+
+    # Initialize the OpenAI client. Use the mock client when developing.
+    load_dotenv()
+    environment = os.getenv('ENVIRONMENT')
+    api_key = os.getenv('OPENAI_API_KEY')
+    ai_client = OpenAI(
+        api_key=api_key) if environment == "prod" else MockOpenaiClient()
+    assistant_id = os.getenv('YOUTUBE_TRANSCRIPT_ASSISTANT_ID', "")
+
+    main(ai_client, assistant_id, fetch_youtube_transcript)
