@@ -103,6 +103,7 @@ if __name__ == "__main__":
     load_dotenv()
     environment = os.getenv('ENVIRONMENT')
     api_key = os.getenv('OPENAI_API_KEY')
+    # TODO max_retries=5,timeout=10 as params
     ai_client = OpenAI(
         api_key=api_key) if environment == "prod" else MockOpenaiClient()
     assistant_id = os.getenv('YOUTUBE_TRANSCRIPT_ASSISTANT_ID', "")
